@@ -51,6 +51,40 @@ class Air:
         self.temp=15.04-0.00649*alt # Celcius
 
 
+class Drone:
+
+    def __init__(self):
+        self.mass=1 # kg
+
+
+class Frame:
+
+    def __init__(self):
+        self.roll=0
+        self.pitch=0
+        self.yaw=0
+        self.x=0
+        self.y=0
+        self.z=0
+
+    def Drone_to_Global(self,roll,pitch,yaw):
+        #roll_matrix = [1,    0,            0;
+        #               0,    Cos(roll),    -Sin(roll);
+        #               0,    Sin(roll),    Cos(roll);]
+
+        #pitch_matrix = [cos(pitch),  0,    sin(pitch);
+        #                0,           1,    0;
+        #                -sin(pitch),    0,    Cos(pitch);]
+
+        #yaw_matrix =  [cos(yaw),    -sin(yaw),    0;
+        #               sin(yaw),    Cos(roll),    0;
+        #               0,                   0,    1;]
+
+        # Rotation_Matrix = yaw*pitch*roll
+        # Global_Frame=Rotation_Matrix*Inertial_Frame
+
+
+
 
 class PointMass:
     # This wasa test for a simple model for a point mass with thrust pointing up.
