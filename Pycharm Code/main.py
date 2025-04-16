@@ -49,7 +49,11 @@ class Air:
     def calc_Temp(self,alt):
         # This assumes that temperature will follow a simple curve from roughly 59 degF at sea level up to 11,000 meters.
         self.temp=15.04-0.00649*alt # Celcius
+
+
+
 class PointMass:
+    # This wasa test for a simple model for a point mass with thrust pointing up.
     def __init__(self):
         self.speed=0 # meters/second
         self.position=0 # meters
