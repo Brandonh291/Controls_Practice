@@ -23,6 +23,7 @@
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 
 class PID:
@@ -66,6 +67,8 @@ class Motor_Propeller:
         # So at 50% throttle we have a range of 49.5 to 50.5
         if self.noise == 0:
             noisy_throttle = throttle
+        elif throttle == 0:
+            noisy_throttle = 0
         else:
             noisy_throttle = random.randrange((throttle * (100 - self.noise)), (throttle * (100 + self.noise)), 1) / 100
 
@@ -112,72 +115,85 @@ class Air:
 
 
 class Drone:
-    def __init__(self, Ixx, Iyy, Izz, L):
-        self.L = L  # Distance from center of quadcopter to propeller
+    def __init__(self, Ixx, Iyy, Izz, L, Mass):
+        # Distance from Center of Quad to center of motor
+        self.L = L  # Meters
 
         # Motors
-        self.mot_1 = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 5)
-        self.mot_2 = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 5)
-        self.mot_3 = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 5)
-        self.mot_4 = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 5)
+        self.mot_1 = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 0)
+        self.mot_2 = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 0)
+        self.mot_3 = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 0)
+        self.mot_4 = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 0)
+        self.Motors = [self.mot_1, self.mot_2, self.mot_3, self.mot_4]
+        # Environment
+        self.air = Air()
 
         # Position
-        self.Pos_X = 0  # meters
-        self.Pos_Y = 0  # meters
-        self.pos_Z = 0  # meters
+        self.Lin_Pos = [0, 0, 0]  # meters
 
         # Velocity
-        self.Vel_X = 0  # meters/second
-        self.Vel_Y = 0  # meters/second
-        self.Vel_Z = 0  # meters/second
+        self.Lin_Vel = [0, 0, 0]  # meters/second
 
         # Acceleration
-        self.Acc_X = 0  # meters/second^2
-        self.Acc_Y = 0  # meters/second^2
-        self.Acc_Z = 0  # meters/second^2
+        self.Lin_Acc = [0, 0, 0]  # meters/second^2
 
         # Angle
-        self.roll = 0  # degrees
-        self.pitch = 0  # degrees
-        self.yaw = 0  # degrees
+        self.Ang_Pos = [0, 0, 0]  # Degrees
 
         # Angular Rate
-        self.roll_rate = 0  # degrees/second
-        self.pitch_rate = 0  # degrees/second
-        self.yaw_rate = 0  # degrees/second
+        self.Ang_Vel = [0, 0, 0]  # Deg/Sec
 
         # Angular Acceleration
-        self.roll_acc = 0  # degrees/second^2
-        self.pitch_acc = 0  # degrees/second^2
-        self.yaw_acc = 0  # degrees/second^2
+        self.Ang_Acc = [0, 0, 0]  # Deg/Sec^2
 
         # Physical Items
-        self.mass = 1  # kg
+        self.mass = Mass  # kg
 
         # Controller outputs (refers to throttle %)
-        self.cont_1 = 0
-        self.cont_2 = 0
-        self.cont_3 = 0
-        self.cont_4 = 0
+        self.PID_Out = [0, 0, 0, 0]  # %
 
-    def controller(self, des_x, des_y, des_z):
+        # Moment of Inertia
+        self.MoI = [Ixx, Iyy, Izz]  # kg/m^2
 
-    def updateFrame(self, timestep, air_density, des_x, des_y, des_z):
-        self.controller(des_x, des_y, des_z)
-        # Linear Motion
-        TotalThrust = self.mot_1.dynamic_thrust(self.cont_1, Vel_Z, air_density) + self.mot_2.dynamic_thrust(
-            self.cont_2, Vel_Z, air_density) + self.mot_3.dynamic_thrust(self.cont_3, Vel_Z,
-                                                                         air_density) + self.mot_4.dynamic_thrust(
-            self.cont_4, Vel_Z, air_density)
+        # Gravity
+        self.g = 9.81  # m/s^2
 
-    def calc_vel(self, thrust, timestep):
-        self.accel = (thrust - 9.81) / self.mass
-        self.speed = self.speed + self.accel * timestep
-        return self.speed
+        # Rotor Speed
+        self.Omega = [0, 0, 0, 0]  # rad/s
 
-    def calc_pos(self, timestep):
-        self.position = self.position + self.speed * timestep
-        return self.position
+        # Thrust
+        self.F_total = 0  # newtons
+        self.F_mot = [0, 0, 0, 0]  # newtons
+
+        # Control Torque
+        self.Tau = [0, 0, 0]  # Newton Meters
+
+    def calc_state(self):
+        # Air Density
+        airDensity = self.air.calc_density(self.Lin_Pos[2])
+        print(airDensity)
+
+        # Thrust
+        self.F_total = 0
+        for i in range(len(self.Motors)):
+            self.F_mot[i] = self.Motors[i].dynamic_Thrust(self.PID_Out[i], self.Lin_Vel[2], airDensity)
+            self.F_total = self.F_total + self.F_mot[i]
+            print("Thrust of Motor " + str(i) + ":" + str(self.F_mot[i]))
+        print("Total For all Motors:" + str(self.F_total))
+
+        # Torque
+        self.Tau[0] = self.L * (self.Motors[2].torque - self.Motors[0].torque)
+        self.Tau[1] = self.L * (self.Motors[3].torque - self.Motors[1].torque)
+        self.Tau[2] = (self.Motors[1].torque + self.Motors[3].torque - self.Motors[0].torque - self.Motors[2].torque)
+        print("Torque" + str(self.Tau))
+
+        self.Lin_Vel[0]
+        self.Lin_Vel[1]
+        self.Lin_Vel[2]
+
+        self.Lin_Pos[0]
+        self.Lin_Pos[1]
+        self.Lin_Pos[2]
 
 
 ##############################################################
@@ -186,18 +202,8 @@ class Drone:
 if __name__ == '__main__':
     x = []
     y = []
-    prop = Motor_Propeller(10, 6, 0.9, 12, 100, 2000, 0)
-    drone = Drone(1, 1, 1, 10)
-    env = Air()
-
-    airspeed = 0
-    for alt in range(0, 11000, 500):
-        density = env.calc_density(alt)
-        thrust = prop.dynamic_Thrust(50, airspeed, density)
-        # print(alt)
-        print(thrust, ",", prop.torque)
-        x.append(alt)
-        y.append(thrust)
+    drone = Drone(1, 1, 1, 10, 1)
+    drone.calc_motor_thrust()
 
     plt.plot(x, y)
     plt.show
